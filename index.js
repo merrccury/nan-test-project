@@ -2,6 +2,8 @@ const nModule = require('bindings')('main');
 const express = require('express');
 const path = require('path');
 
+
+const fibonacci = new nModule.NanFibonacci();
 const app = express();
 const port = 3000
 
@@ -10,7 +12,7 @@ app.get('/', (req, res) => {
 });
 
 app.get('/fibonacci', (req, res) => {
-    const result = nModule.get();
+    const result = fibonacci.get();
     if (result[0] === '-'){
         res.send({
             fibonacci: 'infinity'

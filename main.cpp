@@ -1,9 +1,19 @@
 #include <nan.h>
 
-int counter = 0;
+class NanFibonacci: public Nan::ObjectWrap {
+private:
+    int counter;
+    int fibonacci(int);
+public:
 
-int fibonacci(int number)
-{
+  static NAN_MODULE_INIT(Init);
+  static NAN_METHOD(New);
+  static NAN_METHOD(Get);
+
+  static Nan::Persistent<v8::FunctionTemplate> constructor;
+};
+
+int NanFibonacci::fibonacci(int number){
     if (number == 0)
         return 0;
     if (number == 1)
@@ -11,29 +21,52 @@ int fibonacci(int number)
     return fibonacci(number-1) + fibonacci(number-2);
 }
 
-void Method(const Nan::FunctionCallbackInfo<v8::Value>& info) {
-    v8::Isolate* isolate = info.GetIsolate();
+Nan::Persistent<v8::FunctionTemplate> NanFibonacci::constructor;
 
-    if(info.Length() != 0 ){
-        v8::Local<v8::String> errorMessage = Nan::New<v8::String>("The function takes no parameters").ToLocalChecked();
-        isolate->ThrowException(v8::Exception::TypeError(errorMessage));
-        return;
-    }
-
-    char *s = new char [60];
-    ZeroMemory(s, 60);
-
-    _itoa_s(fibonacci(counter++), s, 59, 10);
-    info.GetReturnValue().Set(Nan::New(s).ToLocalChecked());
+NAN_MODULE_INIT(NanFibonacci::Init) {
+  v8::Local<v8::FunctionTemplate> ctor = Nan::New<v8::FunctionTemplate>(NanFibonacci::New);
+  constructor.Reset(ctor);
+  ctor->InstanceTemplate()->SetInternalFieldCount(1);
+  ctor->SetClassName(Nan::New("NanFibonacci").ToLocalChecked());
+  Nan::SetPrototypeMethod(ctor, "get", Get);
+  Nan::Set(target, Nan::New("NanFibonacci").ToLocalChecked(), Nan::GetFunction(ctor).ToLocalChecked());
 }
 
-void Init(v8::Local<v8::Object> exports) {
-  v8::Local<v8::Context> context = exports->CreationContext();
-  exports->Set(context,
-               Nan::New("get").ToLocalChecked(),
-               Nan::New<v8::FunctionTemplate>(Method)
-                   ->GetFunction(context)
-                   .ToLocalChecked());
+NAN_METHOD(NanFibonacci::New) {
+
+  if(!info.IsConstructCall()) {
+    return Nan::ThrowError(Nan::New("NanFibonacci::New - called without new keyword").ToLocalChecked());
+  }
+
+  if(info.Length() != 0) {
+    return Nan::ThrowError(Nan::New("NanFibonacci::New - didn't expect any arguments").ToLocalChecked());
+  }
+
+  NanFibonacci* fib = new NanFibonacci();
+  fib->Wrap(info.Holder());
+  fib->counter = 0;
+  info.GetReturnValue().Set(info.Holder());
 }
 
-NODE_MODULE(get, Init)
+
+NAN_METHOD(NanFibonacci::Get) {
+  NanFibonacci * self = Nan::ObjectWrap::Unwrap<NanFibonacci>(info.This());
+
+  if (Nan::New(NanFibonacci::constructor)->HasInstance(info[0])) {
+    return Nan::ThrowError(Nan::New("NanFibonacci::Get - didn't expect argument to be instance of NanFibonacci").ToLocalChecked());
+  }
+
+   char *s = new char [60];
+   ZeroMemory(s, 60);
+
+   _itoa_s(self->fibonacci(self->counter), s, 59, 10);
+   self->counter +=1;
+   info.GetReturnValue().Set(Nan::New(s).ToLocalChecked());
+   delete[] s;
+}
+
+NAN_MODULE_INIT(InitModule) {
+  NanFibonacci::Init(target);
+}
+
+NODE_MODULE(NanFibonacci, InitModule);
